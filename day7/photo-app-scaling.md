@@ -68,25 +68,25 @@ Photo files belong in object storage. A database stores structured rows and does
 The database keeps one small row for each photo with the owner and the time and the file key. Object storage holds the files. The app serves them through the CDN.
 
 ## Architecture diagram
-
+```
 Users (phone or web)
-|
-|-- photo requests --> CDN --(cache miss)--> Object storage
-|                                            (originals and thumbnails)
-|
-|-- API requests --> Load balancer --> App servers (3 or more copies)
-|
-|-- feed reads --> Cache --(on a miss)--> Read replica
-|
-|-- writes --> Database primary --copies data--> Read replica
-|
-|-- saves the original photo --> Object storage
-|
-|-- adds a thumbnail job --> Queue --> Worker
-|
-|-- reads original & saves thumbnail --> Object storage
-|-- updates thumbnail link --> Database primary
-
+ |
+ |-- photo requests --> CDN --(cache miss)--> Object storage
+ |                                            (originals and thumbnails)
+ |
+ |-- API requests --> Load balancer --> App servers (3 or more copies)
+                                          |
+                                          |-- feed reads --> Cache --(on a miss)--> Read replica
+                                          |
+                                          |-- writes --> Database primary --copies data--> Read replica
+                                          |
+                                          |-- saves the original photo --> Object storage
+                                          |
+                                          |-- adds a thumbnail job --> Queue --> Worker
+                                                                                   |
+                                                                                   |-- reads original & saves thumbnail --> Object storage
+                                                                                   |-- updates thumbnail link --> Database primary
+```
 
 ## Components
 
