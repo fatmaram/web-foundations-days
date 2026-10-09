@@ -1,5 +1,3 @@
-# SnapShare Scaling Plan
-
 SnapShare is a photo-sharing app. Users upload photos and scroll a feed of photos from people they follow. The plan below sizes the system and shows how each part grows with traffic.
 
 ## Assumptions
@@ -54,7 +52,6 @@ SnapShare is a photo-sharing app. Users upload photos and scroll a feed of photo
 SnapShare is read-heavy. The system serves about 579 feed views for every 11.6 uploads. That ratio is 50 to 1. Each feed page also loads several thumbnails so the real read load on photo files is higher still.
 
 What that means for the design:
-
 - Reads need the most attention so the plan caches aggressively.
 - A CDN serves photo files and keeps that traffic away from the servers.
 - A read replica answers feed queries so the primary database can focus on writes.
@@ -63,7 +60,6 @@ What that means for the design:
 ## Photos stay out of the database
 
 Photo files belong in object storage. A database stores structured rows and does that job well. A 2 MB file inside a row causes several problems:
-
 - 748 TB of new files per year would swell the database and slow its backups and copies to the replica.
 - Database storage costs far more per GB than object storage.
 - Every photo download would occupy a database connection that real queries need.
@@ -73,25 +69,24 @@ The database keeps one small row for each photo with the owner and the time and 
 
 ## Architecture diagram
 
-```
 Users (phone or web)
 |
 |-- photo requests --> CDN --(cache miss)--> Object storage
 |                                            (originals and thumbnails)
 |
 |-- API requests --> Load balancer --> App servers (3 or more copies)
-                                         |
-                                         |-- feed reads --> Cache --(on a miss)--> Read replica
-                                         |
-                                         |-- writes --> Database primary --copies data--> Read replica
-                                         |
-                                         |-- saves the original photo --> Object storage
-                                         |
-                                         |-- adds a thumbnail job --> Queue --> Worker
-                                                                                  |
-                                                                                  |-- reads the original and saves the thumbnail --> Object storage
-                                                                                  |-- saves the thumbnail link --> Database primary
-```
+|
+|-- feed reads --> Cache --(on a miss)--> Read replica
+|
+|-- writes --> Database primary --copies data--> Read replica
+|
+|-- saves the original photo --> Object storage
+|
+|-- adds a thumbnail job --> Queue --> Worker
+|
+|-- reads original & saves thumbnail --> Object storage
+|-- updates thumbnail link --> Database primary
+
 
 ## Components
 
@@ -109,20 +104,19 @@ Users (phone or web)
 
 1. The user picks a photo and taps Upload in the app.
 2. The request reaches the load balancer and goes to one app server.
-3. The app server checks the login token and the file type and size.
+3. The app server checks the login token and validates the file type and size.
 4. The app server saves the 2 MB original in object storage and receives a file key.
-5. The app server writes a photo record to the primary database. The record holds the owner and the time and the file key and a pending thumbnail status.
-6. The app server adds a thumbnail job with the photo id to the queue.
-7. The app server answers the user with success. The upload feels instant.
-8. A worker takes the job from the queue and reads the original from object storage.
-9. The worker creates the 50 KB thumbnail and saves it in object storage.
-10. The worker updates the photo record with the thumbnail link and a ready status.
-11. The feed entries of the followers refresh. Their next feed view loads the thumbnail through the CDN.
-12. If a worker fails midway the queue offers the job to another worker so the thumbnail still appears.
+5. The app server writes a photo record to the primary database holding owner details, upload time, the file key, and a pending status for the thumbnail.
+6. The app server adds a thumbnail job containing the photo ID and original file key to the message queue.
+7. The app server immediately sends a success response to the client user so the upload feels instantaneous.
+8. A background worker pulls the job from the queue and downloads the original photo from object storage.
+9. The worker resizes the photo to generate the 50 KB thumbnail and saves this thumbnail file back to object storage.
+10. The worker updates the photo record in the primary database with the thumbnail URL and sets the thumbnail status to ready.
+11. The newly created thumbnail is served to followers when their feeds refresh, fetching through the CDN.
+12. If a worker fails midway through processing, the queue visibility timeout expires and re-delivers the message to another worker to ensure retry durability.
 
 ## Trade-offs
 
-- **Fresh data against speed:** The cache returns feeds fast but can show data that is a few seconds old. A follower may see a new photo with a short delay. A short expiry time keeps the delay small.
-- **Replica lag:** The read replica copies the primary with a tiny delay. A user who uploads and refreshes at once could miss the newest photo. Reading the own profile from the primary fixes that case.
-- **Instant upload against instant thumbnail:** The queue makes uploads fast but the thumbnail arrives a moment later. The app shows a placeholder until the worker finishes.
-- **Cost against performance:** The CDN and object storage and extra servers add monthly cost and more parts to run. Rules that move old photos to cheaper storage tiers keep the yearly 748 TB growth affordable.
+- **Replication Lag vs. Immediate Consistency:** Using a read replica to offload query volume introduces asynchronous replication lag. A user who uploads a photo and immediately refreshes their feed might query a read replica that has not yet ingested the primary's latest writes, making their post temporarily invisible. *Mitigation:* Query the primary database directly for a user's own profile or recent actions, while serving public feeds from read replicas.
+- **Asynchronous Processing vs. Instant Thumbnail Availability:** Offloading thumbnail generation to a background worker keeps API response times low, but introduces latency before the thumbnail appears in feeds. Users viewing a feed within milliseconds of an upload might see a loading placeholder. *Mitigation:* Display a client-side placeholder or blurred preview until the worker marks the thumbnail status as ready in the database.
+- **Eventual Consistency in Cache vs. Database Load:** Serving user feeds out of an in-memory cache drastically improves throughput but risks serving stale feed lists if cache invalidation misses an edge case. *Mitigation:* Set short Time-To-Live (TTL) durations on cached feeds so stale states resolve automatically within seconds.
