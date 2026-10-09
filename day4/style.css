@@ -1,0 +1,95 @@
+:root {
+  --bg: #f3f1ec;
+  --card: #ffffff;
+  --text: #2f2a26;
+  --border: #c9c2b8;
+  --accent: #4f7255;
+  --accent-hover: #b86f50;
+  --button-text: #ffffff;
+  --warning-color: #e67e22;
+  --over-color: #c0392b;
+}
+
+body.dark {
+  --bg: #1f2420;
+  --card: #2a312b;
+  --text: #ece8e1;
+  --border: #4a544b;
+  --accent: #7fa886;
+  --accent-hover: #d08a6b;
+  --button-text: #1f2420;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 24px 16px;
+  font-family: "Nunito", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+h1 {
+  font-family: "Lexend", system-ui, sans-serif;
+  margin-top: 0;
+}
+
+.card {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 24px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+textarea {
+  width: 100%;
+  padding: 12px;
+  font: inherit;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  resize: vertical;
+}
+
+.buttons {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+button {
+  padding: 10px 18px;
+  font: inherit;
+  background: var(--accent);
+  color: var(--button-text);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+button:hover {
+  background: var(--accent-hover);
+}
+
+.warning {
+  color: var(--warning-color);
+}
+
+.over {
+  color: var(--over-color);
+  font-weight: bold;
+}
