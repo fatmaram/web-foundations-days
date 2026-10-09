@@ -1,3 +1,5 @@
+# SnapShare Scaling Plan
+
 SnapShare is a photo-sharing app. Users upload photos and scroll a feed of photos from people they follow. The plan below sizes the system and shows how each part grows with traffic.
 
 ## Assumptions
